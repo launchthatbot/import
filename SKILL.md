@@ -1,6 +1,6 @@
 ---
 name: launchthatbot-import
-version: 1.2.0
+version: 1.2.1
 description: Export your OpenClaw agent config, memory, skills, and encrypted secrets to a LaunchThatBot deployment. One-time, end-to-end encrypted transfer -- LaunchThatBot never sees your raw API keys.
 author: LaunchThatBot
 homepage: https://launchthatbot.com
