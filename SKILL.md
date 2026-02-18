@@ -9,10 +9,7 @@ requires:
 metadata:
   {
     "openclaw":
-      {
-        "emoji": "🚀",
-        "requires": { "bins": [], "env": [], "config": [] },
-      },
+      { "emoji": "🚀", "requires": { "bins": [], "env": [], "config": [] } },
   }
 ---
 
@@ -63,6 +60,7 @@ mcporter --version || npx -y mcporter --version
 ```
 
 If this fails, tell the user:
+
 - "`mcporter` is required for this skill. Please enable `npx mcporter` (or install/configure mcporter), then run import again."
 
 2. Check LaunchThatBot MCP is configured and discoverable:
@@ -254,14 +252,13 @@ If the user selected air-gapped mode, do not push to API from the old instance. 
       "memory": [{ "filename": "MEMORY.md", "content": "..." }],
       "skills": [{ "path": "web-search/SKILL.md", "content": "..." }]
     },
-    "encryptedSecrets": [
-      { "key": "OPENAI_API_KEY", "ciphertextB64": "<...>" }
-    ]
+    "encryptedSecrets": [{ "key": "OPENAI_API_KEY", "ciphertextB64": "<...>" }]
   }
 }
 ```
 
 Tell the user to upload this bundle in LaunchThatBot:
+
 - Admin -> Agent -> Import Agent -> Air-gapped File mode -> Upload bundle
 
 ## Important Exclusions
