@@ -9,10 +9,7 @@ requires:
 metadata:
   {
     "openclaw":
-      {
-        "emoji": "🚀",
-        "requires": { "bins": [], "env": [], "config": [] },
-      },
+      { "emoji": "🚀", "requires": { "bins": [], "env": [], "config": [] } },
   }
 ---
 
@@ -22,13 +19,18 @@ This skill lets you export your current OpenClaw agent configuration to a Launch
 
 ## How It Works
 
-1. The user generates a **one-time import token** from the LaunchThatBot dashboard
-2. You call LaunchThatBot MCP through `mcporter` (`import_handshake`) to fetch the RSA public key automatically
-3. You collect the agent's config files, memory, skills, and environment secrets
-4. Secrets are encrypted with the RSA public key -- only the target container can decrypt them
-5. Everything is sent through LaunchThatBot MCP via `mcporter` `import_push` (which forwards to LaunchThatBot import API)
-6. The token expires after 15 minutes and can only be used once
-7. After import, the target container is automatically restarted to pick up the new config
+This skill supports two import modes:
+
+1. **Quick API mode**
+   - The user generates a one-time import token from LaunchThatBot dashboard.
+   - You call `import_handshake` (via `mcporter`) to fetch the RSA public key.
+   - You encrypt secrets and call `import_push` directly to LaunchThatBot API.
+2. **Air-gapped file mode**
+   - The user generates an air-gapped session from LaunchThatBot dashboard and downloads a session JSON (contains token + public key metadata).
+   - You read that session file locally, collect config/memory/skills/env, encrypt secrets, and produce an encrypted bundle file.
+   - The user uploads that bundle file in LaunchThatBot dashboard (mobile/PWA supported).
+
+In both modes, token/session is one-time + short-lived and the target container is restarted after import.
 
 ## Security Model
 
@@ -58,6 +60,7 @@ mcporter --version || npx -y mcporter --version
 ```
 
 If this fails, tell the user:
+
 - "`mcporter` is required for this skill. Please enable `npx mcporter` (or install/configure mcporter), then run import again."
 
 2. Check LaunchThatBot MCP is configured and discoverable:
@@ -102,7 +105,7 @@ Ask the user for:
 
 The user gets the import token by clicking **Import Agent** on their agent's detail page in the LaunchThatBot dashboard.
 
-### Step 2: Fetch the Public Key (Handshake via mcporter)
+### Step 2A (Quick API): Fetch the Public Key (Handshake via mcporter)
 
 Call LaunchThatBot MCP through `mcporter`:
 
@@ -123,6 +126,17 @@ Response:
 ```
 
 If the response is a 401, the token is invalid, expired, or already used. Ask the user to generate a new one.
+
+### Step 2B (Air-gapped): Read Session File
+
+If the user chooses air-gapped mode, read the session file provided by LaunchThatBot dashboard and extract:
+
+- `importToken`
+- `publicKey`
+- `expiresAt`
+- optional `apiUrl`
+
+Do not call `import_handshake` in air-gapped mode if the session file already includes a valid `publicKey`.
 
 ### Step 3: Collect Agent Data
 
@@ -183,7 +197,7 @@ function encryptSecret(value, publicKeyPem) {
 
 If encryption fails, verify the public key is a valid PEM string starting with `-----BEGIN PUBLIC KEY-----`.
 
-### Step 6: Send the Payload (via mcporter)
+### Step 6A (Quick API): Send the Payload (via mcporter)
 
 Send everything via LaunchThatBot MCP through `mcporter`:
 
@@ -222,6 +236,30 @@ If successful, tell the user:
 - That they can now safely shut down this old instance
 
 If it fails, report the error and suggest generating a new import token from the LaunchThatBot dashboard.
+
+### Step 6B (Air-gapped): Write Bundle File for User Upload
+
+If the user selected air-gapped mode, do not push to API from the old instance. Instead, write a local bundle file for the user:
+
+```json
+{
+  "schema": "ltb-airgap-import@1",
+  "importToken": "<importToken>",
+  "apiUrl": "https://api.ltb.it.com",
+  "payload": {
+    "config": {
+      "soulMd": "...",
+      "memory": [{ "filename": "MEMORY.md", "content": "..." }],
+      "skills": [{ "path": "web-search/SKILL.md", "content": "..." }]
+    },
+    "encryptedSecrets": [{ "key": "OPENAI_API_KEY", "ciphertextB64": "<...>" }]
+  }
+}
+```
+
+Tell the user to upload this bundle in LaunchThatBot:
+
+- Admin -> Agent -> Import Agent -> Air-gapped File mode -> Upload bundle
 
 ## Important Exclusions
 
