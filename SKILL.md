@@ -4,10 +4,15 @@ version: 1.2.0
 description: Export your OpenClaw agent config, memory, skills, and encrypted secrets to a LaunchThatBot deployment. One-time, end-to-end encrypted transfer -- LaunchThatBot never sees your raw API keys.
 author: LaunchThatBot
 homepage: https://launchthatbot.com
+requires:
+  mcp: launchthatbot
 metadata:
   {
     "openclaw":
-      { "emoji": "🚀", "requires": { "bins": [], "env": [], "config": [] } },
+      {
+        "emoji": "🚀",
+        "requires": { "bins": [], "env": [], "config": [] },
+      },
   }
 ---
 
@@ -18,10 +23,10 @@ This skill lets you export your current OpenClaw agent configuration to a Launch
 ## How It Works
 
 1. The user generates a **one-time import token** from the LaunchThatBot dashboard
-2. You call the handshake endpoint with the token to fetch the RSA public key automatically
+2. You call LaunchThatBot MCP through `mcporter` (`import_handshake`) to fetch the RSA public key automatically
 3. You collect the agent's config files, memory, skills, and environment secrets
 4. Secrets are encrypted with the RSA public key -- only the target container can decrypt them
-5. Everything is sent to LaunchThatBot's import API via HTTPS
+5. Everything is sent through LaunchThatBot MCP via `mcporter` `import_push` (which forwards to LaunchThatBot import API)
 6. The token expires after 15 minutes and can only be used once
 7. After import, the target container is automatically restarted to pick up the new config
 
@@ -40,6 +45,54 @@ The answer: **you are not sharing them with us.**
 
 When the user says something like "export my config to LaunchThatBot" or "migrate to LaunchThatBot", follow these steps:
 
+## MCP + mcporter Prerequisite
+
+This skill is **mcporter-first** for OpenClaw/Pi compatibility.
+
+Before running this flow, verify prerequisites in this order:
+
+1. Check `mcporter` is runnable:
+
+```bash
+mcporter --version || npx -y mcporter --version
+```
+
+If this fails, tell the user:
+- "`mcporter` is required for this skill. Please enable `npx mcporter` (or install/configure mcporter), then run import again."
+
+2. Check LaunchThatBot MCP is configured and discoverable:
+
+```bash
+(mcporter list || npx -y mcporter list)
+(mcporter list launchthatbot --schema || npx -y mcporter list launchthatbot --schema)
+```
+
+If `launchthatbot` is not available, attempt automated setup (if environment allows) and then re-check. If automation is blocked, ask the user to configure LaunchThatBot MCP manually.
+
+Recommended MCP config:
+
+```json
+{
+  "mcpServers": {
+    "launchthatbot": {
+      "command": "npx",
+      "args": ["-y", "@launchthatbot/mcp-server"],
+      "env": {
+        "LAUNCHTHATBOT_API_KEY": "ltb_sk_..."
+      }
+    }
+  }
+}
+```
+
+3. Validate import tools are available before continuing:
+
+```bash
+(mcporter list launchthatbot --schema || npx -y mcporter list launchthatbot --schema)
+```
+
+Confirm `import_handshake` and `import_push` exist.
+
 ### Step 1: Collect Information from the User
 
 Ask the user for:
@@ -49,13 +102,14 @@ Ask the user for:
 
 The user gets the import token by clicking **Import Agent** on their agent's detail page in the LaunchThatBot dashboard.
 
-### Step 2: Fetch the Public Key (Handshake)
+### Step 2: Fetch the Public Key (Handshake via mcporter)
 
-Call the handshake endpoint to retrieve the RSA public key automatically:
+Call LaunchThatBot MCP through `mcporter`:
 
 ```
-GET {apiUrl}/api/import/handshake
-Authorization: Bearer {importToken}
+npx -y mcporter call launchthatbot.import_handshake \
+  importToken:"<importToken>" \
+  apiUrl:"https://api.ltb.it.com"
 ```
 
 Response:
@@ -129,32 +183,32 @@ function encryptSecret(value, publicKeyPem) {
 
 If encryption fails, verify the public key is a valid PEM string starting with `-----BEGIN PUBLIC KEY-----`.
 
-### Step 6: Send the Payload
+### Step 6: Send the Payload (via mcporter)
 
-Send everything to the LaunchThatBot import API:
+Send everything via LaunchThatBot MCP through `mcporter`:
 
 ```
-POST {apiUrl}/api/import/push
-Authorization: Bearer {importToken}
-Content-Type: application/json
-
-{
-  "config": {
-    "soulMd": "<contents of soul.md>",
-    "memory": [
-      { "filename": "MEMORY.md", "content": "<file contents>" },
-      { "filename": "daily-log.json", "content": "<file contents>" }
-    ],
-    "skills": [
-      { "path": "web-search/SKILL.md", "content": "<file contents>" },
-      { "path": "email-sender/SKILL.md", "content": "<file contents>" }
+npx -y mcporter call launchthatbot.import_push --args '{
+  "importToken": "<importToken>",
+  "apiUrl": "https://api.ltb.it.com",
+  "payload": {
+    "config": {
+      "soulMd": "<contents of soul.md>",
+      "memory": [
+        { "filename": "MEMORY.md", "content": "<file contents>" },
+        { "filename": "daily-log.json", "content": "<file contents>" }
+      ],
+      "skills": [
+        { "path": "web-search/SKILL.md", "content": "<file contents>" },
+        { "path": "email-sender/SKILL.md", "content": "<file contents>" }
+      ]
+    },
+    "encryptedSecrets": [
+      { "key": "OPENAI_API_KEY", "ciphertextB64": "<base64 encrypted value>" },
+      { "key": "ANTHROPIC_API_KEY", "ciphertextB64": "<base64 encrypted value>" }
     ]
-  },
-  "encryptedSecrets": [
-    { "key": "OPENAI_API_KEY", "ciphertextB64": "<base64 encrypted value>" },
-    { "key": "ANTHROPIC_API_KEY", "ciphertextB64": "<base64 encrypted value>" }
-  ]
-}
+  }
+}'
 ```
 
 ### Step 7: Report Results
