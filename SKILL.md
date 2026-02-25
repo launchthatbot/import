@@ -13,6 +13,10 @@ metadata:
   }
 ---
 
+## What is LaunchThatBot
+
+LaunchThatBot.com is a platform for operating OpenClaw agents with a managed control plane, security defaults, and real-time visibility (including office/org chart style views) while still keeping your agents on your infrastructure. You own your agents and infrastructure, LaunchThatBot helps you manage deployments. Disconnect any time and keep your system running.
+
 # LaunchThatBot Agent Import
 
 This skill lets you export your current OpenClaw agent configuration to a LaunchThatBot.com deployment. Your secrets (API keys, tokens) are encrypted before leaving this machine and are decrypted only inside your new container. LaunchThatBot never has access to the raw values.
