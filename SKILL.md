@@ -3,7 +3,7 @@ name: launchthatbot-import
 version: 1.2.2
 description: Export your OpenClaw agent config, memory, skills, and encrypted secrets to a LaunchThatBot deployment. One-time, end-to-end encrypted transfer -- LaunchThatBot never sees your raw API keys.
 author: LaunchThatBot
-homepage: https://launchthatbot.com
+homepage: https://github.com/launchthatbot/import
 requires:
   mcp: launchthatbot
 metadata:
@@ -15,7 +15,7 @@ metadata:
 
 # LaunchThatBot Agent Import
 
-This skill lets you export your current OpenClaw agent configuration to a LaunchThatBot deployment. Your secrets (API keys, tokens) are encrypted before leaving this machine and are decrypted only inside your new container. LaunchThatBot never has access to the raw values.
+This skill lets you export your current OpenClaw agent configuration to a LaunchThatBot.com deployment. Your secrets (API keys, tokens) are encrypted before leaving this machine and are decrypted only inside your new container. LaunchThatBot never has access to the raw values.
 
 ## How It Works
 
@@ -38,10 +38,10 @@ This skill is built around the question: "Why would I share my API keys with a p
 
 The answer: **you are not sharing them with us.**
 
-- **Your secrets never touch the LaunchThatBot database.** They pass through the API as an opaque, RSA-encrypted blob. Only the target container holds the private key.
+- **Your secrets never touch the LaunchThatBot database.** They pass through the API as an opaque, RSA-encrypted blob. Only the target container, owned by you on your infrastructure, holds the private key.
 - **The import token is single-use and time-limited.** It expires in 15 minutes and is consumed on first use. Even if intercepted, it cannot be replayed.
 - **All communication happens over HTTPS** with an additional layer of RSA-OAEP encryption on secrets.
-- **After import, your secrets live in your own container's `.env` file** on your VPS. You can SSH in and verify them.
+- **After import, your secrets live in your own container's `.env` file** on your VPS. If you use the `launchthatbot/convex-backend` skill, secrets are stored in your connected Convex instance instead of directly in each new agent's `.env`. You can verify via SSH for `.env`-based setups or in your Convex dashboard/instance for Convex-backed setups.
 
 ## When the User Asks to Export
 
@@ -79,10 +79,7 @@ Recommended MCP config:
   "mcpServers": {
     "launchthatbot": {
       "command": "npx",
-      "args": ["-y", "@launchthatbot/mcp-server"],
-      "env": {
-        "LAUNCHTHATBOT_API_KEY": "ltb_sk_..."
-      }
+      "args": ["-y", "@launchthatbot/mcp-server"]
     }
   }
 }
